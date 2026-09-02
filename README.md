@@ -286,17 +286,29 @@ For queries that return only a single numerical value, the result is displayed w
 AI-Business-Intelligence-Assistant/
 │
 ├── app.py
+├── README.md                 
 ├── requirements.txt
-├── README.md
 ├── .gitignore
 │
-├── assets/
-│   └── demo.mp4             
+├── data/
+│   └── superstore_orders.csv
 │
-└── data/
-    └── superstore_orders.csv
-```
+├── assets/
+│   └── AI-Business-Intelligence-Assistant-demo.gif
+|   └──demo.mp4
+│
+├── architecture_diagram/
+│   └── architecture-diagram.png
+│
+└── screenshots/
+    ├── 1.png
+    ├── 2.png
+    ├── 3.png
+    ├── 4.png
+    ├── 5.png
+    └── 6.png
 
+```
 The SQLite database and Python virtual environment are generated/used locally and should not be committed to the repository.
 
 ---
