@@ -195,6 +195,14 @@ The application will open in your browser.
 
 ---
 
+### Challenge 5: Handling Unsupported Questions
+
+**Problem:** During testing, I found that the LLM could generate a valid but unrelated SQL query when users asked for information that was not available in the dataset, such as an employee satisfaction score.
+
+**Solution:** Added a question answerability check before Text-to-SQL generation. The application verifies whether the question relates to information available in the Superstore dataset and rejects unsupported questions before SQL execution.
+
+---
+
 ## 🔐 Why Use a Local LLM?
 
 The project uses **Ollama + Qwen 2.5 3B** to run the language model locally rather than depending on a paid external LLM API.

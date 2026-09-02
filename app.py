@@ -238,6 +238,120 @@ with col3:
 
 
 # ============================================================
+# QUESTION ANSWERABILITY CHECK
+# ============================================================
+
+def check_question_answerability(question, schema):
+
+    question_lower = question.lower()
+
+    # Common business concepts available in the dataset.
+    # These are mapped to the actual database columns.
+    known_terms = {
+        "sales": ["sales", "revenue", "selling", "sold"],
+        "profit": ["profit", "profits", "profitable", "profitability"],
+        "quantity": ["quantity", "units", "number of items"],
+        "discount": ["discount", "discounts"],
+        "category": ["category", "categories"],
+        "sub_category": ["sub-category", "subcategory", "sub category"],
+        "product": ["product", "products", "item", "items"],
+        "customer": ["customer", "customers", "client", "clients"],
+        "segment": ["segment", "customer segment"],
+        "region": ["region", "regions", "area", "areas"],
+        "order_date": ["date", "dates", "month", "monthly", "year", "yearly",
+                       "quarter", "quarterly", "order date", "time", "trend"],
+        "ship_date": ["ship date", "shipping date", "ship", "shipping"]
+    }
+
+    # Check whether the question contains a concept
+    # that exists in the dataset.
+    matched_terms = []
+
+    for column, terms in known_terms.items():
+
+        for term in terms:
+
+            if term in question_lower:
+
+                matched_terms.append(column)
+                break
+
+    # If the question clearly refers to available data,
+    # allow it to proceed to Text-to-SQL.
+    if matched_terms:
+        return True
+
+    # For questions that do not contain an obvious dataset
+    # concept, ask the LLM for a second opinion.
+    answerability_prompt = f"""
+You are checking whether a business question can be answered
+using the available Superstore sales database.
+
+The database contains order, customer, product and sales data.
+
+Database schema:
+{schema}
+
+User question:
+{question}
+
+Determine whether the question can be answered using ONLY
+the available database.
+
+Rules:
+1. Return ONLY YES or NO.
+2. Return YES only if the requested information can reasonably
+   be calculated from the available data.
+3. Return NO if the requested information is not represented
+   by the database.
+4. Never assume missing information exists.
+5. Do not use outside knowledge.
+
+Examples:
+
+Question: Which category has the highest profit?
+Answer: YES
+
+Question: What is the total profit?
+Answer: YES
+
+Question: What are the monthly sales?
+Answer: YES
+
+Question: Which region has the highest sales?
+Answer: YES
+
+Question: What is the employee satisfaction score?
+Answer: NO
+
+Question: How many employees does the company have?
+Answer: NO
+
+Question: What is the company's marketing budget?
+Answer: NO
+
+Question: What is the weather today?
+Answer: NO
+
+Return only YES or NO.
+"""
+
+    response = chat(
+        model="qwen2.5:3b",
+        messages=[
+            {
+                "role": "user",
+                "content": answerability_prompt
+            }
+        ]
+    )
+
+    answer = response.message.content.strip().upper()
+
+    return answer.startswith("YES")
+
+
+# ============================================================
 # SQL VALIDATION
 # ============================================================
 
@@ -341,396 +455,421 @@ if st.button(
     else:
 
         # ====================================================
-        # CREATE SQL GENERATION PROMPT
-        # ====================================================
-
-        prompt = f"""
-You are an expert SQLite SQL analyst.
-
-You are given a SQLite database with the following schema:
-
-{schema}
-
-Your task is to convert the user's business question into
-ONE valid SQLite SELECT query.
-
-IMPORTANT:
-- You MUST use only columns that appear in the schema.
-- NEVER invent or rename a column.
-- The database uses lowercase snake_case column names.
-- "customer segment" means the column `segment`.
-- "product name" means the column `product_name`.
-- "sub-category" means the column `sub_category`.
-- "order date" means the column `order_date`.
-- "sales" means the column `sales`.
-- "profit" means the column `profit`.
-- "quantity" means the column `quantity`.
-- "discount" means the column `discount`.
-- "region" means the column `region`.
-- "category" means the column `category`.
-
-User question:
-{question}
-
-Rules:
-1. Return ONLY the SQL query.
-2. Do not use markdown or code fences.
-3. Do not explain the query.
-4. Only generate SELECT queries.
-5. Use ONLY the exact table and column names provided in the schema.
-6. Never create a column name based on natural-language wording.
-7. For highest/lowest questions involving profit or sales,
-   use SUM() when comparing categories, segments, regions,
-   sub-categories or products.
-8. For "top N" questions, use ORDER BY and LIMIT.
-9. For monthly sales/profit trends, use:
-   strftime('%Y-%m', order_date)
-   and GROUP BY the resulting month.
-10. For monthly trends, order the results chronologically by month.
-11. For time trends, return one row per month, not one row per transaction.
-12. When ranking or finding the highest/lowest value,
-    return both the relevant name/category and the calculated value.
-13. Use clear aliases for calculated columns.
-14. Do not use columns that are not present in the schema.
-
-Return only the SQL query.
-"""
-
-
-        # ====================================================
-        # ASK QWEN
+        # CHECK QUESTION ANSWERABILITY
         # ====================================================
 
         with st.spinner(
-            "🤖 AI is analyzing your question..."
+            "🔎 Checking whether the question can be answered..."
         ):
 
-            response = chat(
-                model="qwen2.5:3b",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+            is_answerable = check_question_answerability(
+                question,
+                schema
             )
 
+        if not is_answerable:
 
-        # ====================================================
-        # CLEAN GENERATED SQL
-        # ====================================================
-
-        sql_query = response.message.content.strip()
-
-        sql_query = (
-            sql_query
-            .replace("```sql", "")
-            .replace("```", "")
-            .strip()
-        )
-
-        # Remove unnecessary outer parentheses
-        if (
-            sql_query.startswith("(")
-            and sql_query.endswith(")")
-        ):
-
-            sql_query = sql_query[1:-1].strip()
-
-
-        # ====================================================
-        # GENERATED SQL
-        # ====================================================
-
-        with st.expander(
-            "🧠 View Generated SQL",
-            expanded=False
-        ):
-
-            st.code(
-                sql_query,
-                language="sql"
-            )
-
-
-        # ====================================================
-        # SQL VALIDATION
-        # ====================================================
-
-        is_safe, validation_message = validate_sql(
-            sql_query
-        )
-
-
-        if not is_safe:
-
-            st.error(
-                f"SQL query rejected: {validation_message}"
+            st.warning(
+                "This question cannot be answered using "
+                "the available Superstore dataset. "
+                "Please ask a question related to sales, "
+                "profit, products, customers, regions, "
+                "categories, or dates."
             )
 
         else:
 
-            # =================================================
-            # DATABASE CONNECTION
-            # =================================================
-
-            conn = sqlite3.connect(
-                "superstore.db"
-            )
-
-            try:
-
-                # =============================================
-                # EXECUTE SQL
-                # =============================================
-
-                result = pd.read_sql_query(
-                    sql_query,
-                    conn
-                )
-
-
-                # =============================================
-                # QUERY RESULT
-                # =============================================
-
-                st.subheader("📊 Query Result")
-
-                st.dataframe(
-                    result,
-                    use_container_width=True
-                )
-
-
-                # =============================================
-                # AUTOMATIC VISUALIZATION
-                # =============================================
-
-                if (
-                    len(result.columns) >= 2
-                    and len(result) > 1
-                ):
-
-                    st.subheader("📈 Visualization")
-
-                    try:
-
-                        x_column = result.columns[0]
-                        y_column = result.columns[1]
-
-                        if pd.api.types.is_numeric_dtype(
-                            result[y_column]
-                        ):
-
-                            fig, ax = plt.subplots(
-                                figsize=(12, 6)
-                            )
-
-                            x_values = (
-                                result[x_column]
-                                .astype(str)
-                            )
-
-                            y_values = result[y_column]
-
-
-                            # ---------------------------------
-                            # Detect time-based results
-                            # ---------------------------------
-
-                            is_time_series = (
-                                "month"
-                                in x_column.lower()
-                                or "date"
-                                in x_column.lower()
-                                or "year"
-                                in x_column.lower()
-                            )
-
-
-                            # ---------------------------------
-                            # TIME SERIES
-                            # ---------------------------------
-
-                            if is_time_series:
-
-                                ax.plot(
-                                    x_values,
-                                    y_values,
-                                    marker="o"
-                                )
-
-                                ax.set_xlabel(
-                                    x_column
-                                )
-
-                                ax.set_ylabel(
-                                    y_column
-                                )
-
-                                total_points = len(
-                                    x_values
-                                )
-
-                                # Display approximately
-                                # eight x-axis labels
-                                if total_points > 8:
-
-                                    tick_step = max(
-                                        1,
-                                        total_points // 8
-                                    )
-
-                                    tick_positions = list(
-                                        range(
-                                            0,
-                                            total_points,
-                                            tick_step
-                                        )
-                                    )
-
-                                    # Include final point
-                                    if (
-                                        tick_positions[-1]
-                                        != total_points - 1
-                                    ):
-
-                                        tick_positions.append(
-                                            total_points - 1
-                                        )
-
-                                else:
-
-                                    tick_positions = list(
-                                        range(
-                                            total_points
-                                        )
-                                    )
-
-
-                                ax.set_xticks(
-                                    tick_positions
-                                )
-
-                                ax.set_xticklabels(
-                                    [
-                                        x_values.iloc[i]
-                                        for i in tick_positions
-                                    ],
-                                    rotation=0,
-                                    ha="center"
-                                )
-
-                                ax.grid(
-                                    axis="y",
-                                    alpha=0.3
-                                )
-
-
-                            # ---------------------------------
-                            # CATEGORY BAR CHART
-                            # ---------------------------------
-
-                            else:
-
-                                ax.bar(
-                                    x_values,
-                                    y_values
-                                )
-
-                                ax.set_xlabel(
-                                    x_column
-                                )
-
-                                ax.set_ylabel(
-                                    y_column
-                                )
-
-                                plt.xticks(
-                                    rotation=45,
-                                    ha="right"
-                                )
-
-
-                            plt.tight_layout()
-
-                            st.pyplot(fig)
-
-                            plt.close(fig)
-
-
-                    except Exception as e:
-
-                        st.warning(
-                            "Visualization could not be "
-                            f"generated: {e}"
-                        )
-
-
-                # =============================================
-                # GENERATE AI BUSINESS INSIGHT
-                # =============================================
-
-                result_text = result.to_string(
-                    index=False
-                )
-
-                insight_prompt = f"""
-You are a business analyst.
-
-The user asked:
-
-{question}
-
-The SQL query returned this result:
-
-{result_text}
-
-Give a short business insight based ONLY on
-the provided result.
-
-Do not invent information.
-
-Keep the explanation to 2-3 sentences.
-"""
-
-
-                insight_response = chat(
+            # ====================================================
+            # CREATE SQL GENERATION PROMPT
+            # ====================================================
+
+            prompt = f"""
+    You are an expert SQLite SQL analyst.
+
+    You are given a SQLite database with the following schema:
+
+    {schema}
+
+    Your task is to convert the user's business question into
+    ONE valid SQLite SELECT query.
+
+    IMPORTANT:
+    - You MUST use only columns that appear in the schema.
+    - NEVER invent or rename a column.
+    - The database uses lowercase snake_case column names.
+    - "customer segment" means the column `segment`.
+    - "product name" means the column `product_name`.
+    - "sub-category" means the column `sub_category`.
+    - "order date" means the column `order_date`.
+    - "sales" means the column `sales`.
+    - "profit" means the column `profit`.
+    - "quantity" means the column `quantity`.
+    - "discount" means the column `discount`.
+    - "region" means the column `region`.
+    - "category" means the column `category`.
+
+    User question:
+    {question}
+
+    Rules:
+    1. Return ONLY the SQL query.
+    2. Do not use markdown or code fences.
+    3. Do not explain the query.
+    4. Only generate SELECT queries.
+    5. Use ONLY the exact table and column names provided in the schema.
+    6. Never create a column name based on natural-language wording.
+    7. For highest/lowest questions involving profit or sales,
+       use SUM() when comparing categories, segments, regions,
+       sub-categories or products.
+    8. For "top N" questions, use ORDER BY and LIMIT.
+    9. For monthly sales/profit trends, use:
+       strftime('%Y-%m', order_date)
+       and GROUP BY the resulting month.
+    10. For monthly trends, order the results chronologically by month.
+    11. For time trends, return one row per month, not one row per transaction.
+    12. When ranking or finding the highest/lowest value,
+        return both the relevant name/category and the calculated value.
+    13. Use clear aliases for calculated columns.
+    14. Do not use columns that are not present in the schema.
+
+    Return only the SQL query.
+    """
+
+
+            # ====================================================
+            # ASK QWEN
+            # ====================================================
+
+            with st.spinner(
+                "🤖 AI is analyzing your question..."
+            ):
+
+                response = chat(
                     model="qwen2.5:3b",
                     messages=[
                         {
                             "role": "user",
-                            "content": insight_prompt
+                            "content": prompt
                         }
                     ]
                 )
 
 
-                insight = (
-                    insight_response
-                    .message
-                    .content
-                    .strip()
+            # ====================================================
+            # CLEAN GENERATED SQL
+            # ====================================================
+
+            sql_query = response.message.content.strip()
+
+            sql_query = (
+                sql_query
+                .replace("```sql", "")
+                .replace("```", "")
+                .strip()
+            )
+
+            # Remove unnecessary outer parentheses
+            if (
+                sql_query.startswith("(")
+                and sql_query.endswith(")")
+            ):
+
+                sql_query = sql_query[1:-1].strip()
+
+
+            # ====================================================
+            # GENERATED SQL
+            # ====================================================
+
+            with st.expander(
+                "🧠 View Generated SQL",
+                expanded=False
+            ):
+
+                st.code(
+                    sql_query,
+                    language="sql"
                 )
 
 
-                # =============================================
-                # BUSINESS INSIGHT
-                # =============================================
+            # ====================================================
+            # SQL VALIDATION
+            # ====================================================
 
-                st.subheader(
-                    "💡 AI Business Insight"
-                )
-
-                st.info(insight)
+            is_safe, validation_message = validate_sql(
+                sql_query
+            )
 
 
-            except Exception as e:
+            if not is_safe:
 
                 st.error(
-                    f"SQL execution error: {e}"
+                    f"SQL query rejected: {validation_message}"
                 )
 
-            finally:
+            else:
 
-                conn.close()
+                # =================================================
+                # DATABASE CONNECTION
+                # =================================================
+
+                conn = sqlite3.connect(
+                    "superstore.db"
+                )
+
+                try:
+
+                    # =============================================
+                    # EXECUTE SQL
+                    # =============================================
+
+                    result = pd.read_sql_query(
+                        sql_query,
+                        conn
+                    )
+
+
+                    # =============================================
+                    # QUERY RESULT
+                    # =============================================
+
+                    st.subheader("📊 Query Result")
+
+                    st.dataframe(
+                        result,
+                        use_container_width=True
+                    )
+
+
+                    # =============================================
+                    # AUTOMATIC VISUALIZATION
+                    # =============================================
+
+                    if (
+                        len(result.columns) >= 2
+                        and len(result) > 1
+                    ):
+
+                        st.subheader("📈 Visualization")
+
+                        try:
+
+                            x_column = result.columns[0]
+                            y_column = result.columns[1]
+
+                            if pd.api.types.is_numeric_dtype(
+                                result[y_column]
+                            ):
+
+                                fig, ax = plt.subplots(
+                                    figsize=(12, 6)
+                                )
+
+                                x_values = (
+                                    result[x_column]
+                                    .astype(str)
+                                )
+
+                                y_values = result[y_column]
+
+
+                                # ---------------------------------
+                                # Detect time-based results
+                                # ---------------------------------
+
+                                is_time_series = (
+                                    "month"
+                                    in x_column.lower()
+                                    or "date"
+                                    in x_column.lower()
+                                    or "year"
+                                    in x_column.lower()
+                                )
+
+
+                                # ---------------------------------
+                                # TIME SERIES
+                                # ---------------------------------
+
+                                if is_time_series:
+
+                                    ax.plot(
+                                        x_values,
+                                        y_values,
+                                        marker="o"
+                                    )
+
+                                    ax.set_xlabel(
+                                        x_column
+                                    )
+
+                                    ax.set_ylabel(
+                                        y_column
+                                    )
+
+                                    total_points = len(
+                                        x_values
+                                    )
+
+                                    # Display approximately
+                                    # eight x-axis labels
+                                    if total_points > 8:
+
+                                        tick_step = max(
+                                            1,
+                                            total_points // 8
+                                        )
+
+                                        tick_positions = list(
+                                            range(
+                                                0,
+                                                total_points,
+                                                tick_step
+                                            )
+                                        )
+
+                                        # Include final point
+                                        if (
+                                            tick_positions[-1]
+                                            != total_points - 1
+                                        ):
+
+                                            tick_positions.append(
+                                                total_points - 1
+                                            )
+
+                                    else:
+
+                                        tick_positions = list(
+                                            range(
+                                                total_points
+                                            )
+                                        )
+
+
+                                    ax.set_xticks(
+                                        tick_positions
+                                    )
+
+                                    ax.set_xticklabels(
+                                        [
+                                            x_values.iloc[i]
+                                            for i in tick_positions
+                                        ],
+                                        rotation=0,
+                                        ha="center"
+                                    )
+
+                                    ax.grid(
+                                        axis="y",
+                                        alpha=0.3
+                                    )
+
+
+                                # ---------------------------------
+                                # CATEGORY BAR CHART
+                                # ---------------------------------
+
+                                else:
+
+                                    ax.bar(
+                                        x_values,
+                                        y_values
+                                    )
+
+                                    ax.set_xlabel(
+                                        x_column
+                                    )
+
+                                    ax.set_ylabel(
+                                        y_column
+                                    )
+
+                                    plt.xticks(
+                                        rotation=45,
+                                        ha="right"
+                                    )
+
+
+                                plt.tight_layout()
+
+                                st.pyplot(fig)
+
+                                plt.close(fig)
+
+
+                        except Exception as e:
+
+                            st.warning(
+                                "Visualization could not be "
+                                f"generated: {e}"
+                            )
+
+
+                    # =============================================
+                    # GENERATE AI BUSINESS INSIGHT
+                    # =============================================
+
+                    result_text = result.to_string(
+                        index=False
+                    )
+
+                    insight_prompt = f"""
+    You are a business analyst.
+
+    The user asked:
+
+    {question}
+
+    The SQL query returned this result:
+
+    {result_text}
+
+    Give a short business insight based ONLY on
+    the provided result.
+
+    Do not invent information.
+
+    Keep the explanation to 2-3 sentences.
+    """
+
+
+                    insight_response = chat(
+                        model="qwen2.5:3b",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": insight_prompt
+                            }
+                        ]
+                    )
+
+
+                    insight = (
+                        insight_response
+                        .message
+                        .content
+                        .strip()
+                    )
+
+
+                    # =============================================
+                    # BUSINESS INSIGHT
+                    # =============================================
+
+                    st.subheader(
+                        "💡 AI Business Insight"
+                    )
+
+                    st.info(insight)
+
+
+                except Exception as e:
+
+                    st.error(
+                        f"SQL execution error: {e}"
+                    )
+
+                finally:
+
+                    conn.close()
