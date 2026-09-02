@@ -1,6 +1,6 @@
 # 🚀 AI Business Intelligence Assistant
 
-[🎥 Project Demo](assets/demo.gif)
+[🎥 Project Demo](assets/AI-Business-Intelligence-Assistant-demo.gif)
 
 An AI-powered Business Intelligence application that allows users to ask questions about structured sales data using natural language. The system uses a locally hosted **Qwen 2.5 3B Large Language Model** through **Ollama** to convert business questions into SQL, execute the generated queries against a SQLite database, visualize the results, and provide concise AI-generated business insights.
 
@@ -45,7 +45,7 @@ Application Development: Interactive Streamlit interface
 - **Matplotlib**: Used to generate categorical and time-series visualizations.
 
 ### Architecture
-![AI Business Intelligence Assistant Architecture](architecture_diagram/architecture_diagram.png)
+![AI Business Intelligence Assistant Architecture](architecture_diagram/architecture-diagram.png)
 
 ---
 
