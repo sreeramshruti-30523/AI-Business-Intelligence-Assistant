@@ -1,6 +1,6 @@
 # 🚀 AI Business Intelligence Assistant
 
-[🎥 Project Demo](assets/demo.mp4)
+[🎥 Project Demo](assets/demo.gif)
 
 An AI-powered Business Intelligence application that allows users to ask questions about structured sales data using natural language. The system uses a locally hosted **Qwen 2.5 3B Large Language Model** through **Ollama** to convert business questions into SQL, execute the generated queries against a SQLite database, visualize the results, and provide concise AI-generated business insights.
 
@@ -22,6 +22,18 @@ Through this project, I explored **Text-to-SQL, prompt engineering, local LLM de
 
 ---
 
+## 💡 What this project demonstrates
+
+Generative AI: Local Qwen 2.5 3B integration
+Text-to-SQL: Natural language → executable SQL
+Data Analytics: SQL + Pandas + business KPIs
+Business Intelligence: Automated charts and insights
+Data Engineering: CSV → transformation → SQLite
+AI Safety: Read-only SQL validation
+Application Development: Interactive Streamlit interface
+
+---
+
 ## 🛠️ Tech Stack & Architecture Choice
 
 - **Python**: Chosen as the primary development language because of its strong ecosystem for AI, data analysis, and visualization.
@@ -33,34 +45,7 @@ Through this project, I explored **Text-to-SQL, prompt engineering, local LLM de
 - **Matplotlib**: Used to generate categorical and time-series visualizations.
 
 ### Architecture
-
-```text
-Superstore CSV
-      ↓
-Pandas Data Processing
-      ↓
-Column Name Normalization
-      ↓
-SQLite Database
-      ↓
-Natural Language Question
-      ↓
-Qwen 2.5 3B
-      ↓
-Text-to-SQL
-      ↓
-SQL Cleaning
-      ↓
-SQL Validation
-      ↓
-SQLite Query Execution
-      ↓
-Query Result
-      ↓
-Visualization
-      ↓
-AI Business Insight
-```
+![AI Business Intelligence Assistant Architecture](architecture_diagram/architecture_diagram.png)
 
 ---
 
@@ -82,28 +67,35 @@ AI Business Insight
 
 ### 🎥 Project Demo
 
-
 [▶️ Watch the Project Demo](assets/demo.mp4)
 
--->
+### 1. Natural Language Query
 
-### Demo Workflow
+Users can ask business questions without writing SQL.
+![Natural Language Query](screenshots/1.png)
+---
 
-The demonstration shows the complete workflow:
+### 2. AI-Generated SQL
 
-```text
-Natural-Language Question
-          ↓
-AI-Generated SQL
-          ↓
-SQL Validation
-          ↓
-Database Result
-          ↓
-Visualization
-          ↓
-AI Business Insight
-```
+Qwen 2.5 3B converts the natural-language question into SQL.
+
+![Generated SQL](screenshots/4.png)
+
+---
+### 3. Query Results & Visualization
+
+The validated SQL query is executed against the SQLite database and the
+results are automatically visualized.
+
+![Query Results](screenshots/5.png)
+
+---
+### 4. AI-Generated Business Insight
+
+The LLM analyzes the returned data and provides a concise business insight.
+
+![AI Business Insight](screenshots/6.png)
+
 
 Example questions demonstrated by the application include:
 
@@ -124,7 +116,10 @@ Example questions demonstrated by the application include:
 ### 1. Clone the repository
 
 ```bash
-git clone YOUR_GITHUB_REPOSITORY_URL
+git clone https://github.com/sreeramshruti-30523/AI-Business-Intelligence-Assistant.git
+```
+
+```bash
 cd AI-Business-Intelligence-Assistant
 ```
 
@@ -296,7 +291,7 @@ AI-Business-Intelligence-Assistant/
 ├── .gitignore
 │
 ├── assets/
-│   └── demo.gif              
+│   └── demo.mp4             
 │
 └── data/
     └── superstore_orders.csv
