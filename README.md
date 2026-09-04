@@ -6,6 +6,16 @@ An AI-powered Business Intelligence application that allows users to ask questio
 
 ---
 
+## Objective
+
+The objective of this project is to build a local AI-powered Business Intelligence assistant that allows non-technical users to interact with business data using natural language.
+
+The system converts user questions into SQL, validates and executes the generated queries, visualizes the results, and generates concise business insights.
+
+The project was evaluated on a 30-question benchmark and achieved **96.7% overall accuracy**, with an average AI response time of **8.45 seconds**. Based on an estimated 2-minute manual SQL baseline, the system demonstrates a potential **~93% reduction in response time for routine business queries**.
+
+---
+
 ## 💡 Business Problem
 
 Data Analysts often spend a significant amount of time answering repetitive, frequently asked questions from clients or business owners, such as sales by category, regional performance, or monthly trends. Since many clients are not familiar with SQL, they depend on analysts even for simple data queries. This project solves this problem by providing an AI-powered interface where clients can ask these frequently asked questions in natural language and receive data-driven answers, visualizations, and business insights. This reduces repetitive workload for data analysts, allowing them to focus more time on complex analysis and higher-value business tasks.
@@ -61,6 +71,40 @@ Application Development: Interactive Streamlit interface
 - **AI Business Insights:** The LLM summarizes returned database results into concise business observations.
 - **Local AI Processing:** Qwen runs locally through Ollama, so the application does not require a paid external LLM API key.
 
+---
+
+## Performance & Evaluation
+
+The AI Business Intelligence Assistant was evaluated using a **30-question benchmark** covering supported business queries, unsupported questions, and natural-language variations.
+
+### Benchmark Results
+
+| Metric | Result |
+|---|---:|
+| Supported business questions | **20/20 (100%)** |
+| Unsupported-question detection | **4/5 (80%)** |
+| Natural-language / edge questions | **5/5 (100%)** |
+| Overall benchmark accuracy | **29/30 (96.7%)** |
+| Average AI response time | **8.45 seconds** |
+| Minimum response time | **4.87 seconds** |
+| Maximum response time | **46.22 seconds** |
+
+The benchmark evaluates whether the system can correctly understand business questions, generate valid SQL, execute the query against the database, and return the expected analytical result.
+
+### Estimated Business Impact
+
+To estimate the potential efficiency benefit for routine business queries, the measured AI response time was compared with an estimated **2-minute manual SQL analysis baseline**.
+
+- Estimated manual SQL response time: **120 seconds/query**
+- Average AI response time: **8.45 seconds/query**
+- Estimated time saved: **111.55 seconds/query**
+- Estimated response-time reduction: **~93%**
+
+Using the same baseline, answering 20 routine business questions could represent approximately **37 minutes of analyst time saved**.
+
+> **Note:** The 2-minute manual baseline is an estimate rather than a controlled measurement. The AI response time and benchmark accuracy are measured results from the project evaluation.
+
+Detailed benchmark results are available in [`benchmark/results.csv`](benchmark/results.csv).
 ---
 
 ## 📸 Core Walkthrough / Demo
@@ -201,6 +245,12 @@ The application will open in your browser.
 
 **Solution:** Added a question answerability check before Text-to-SQL generation. The application verifies whether the question relates to information available in the Superstore dataset and rejects unsupported questions before SQL execution.
 
+### Challenge 6: 
+
+- Designed and evaluated a 30-question benchmark to measure Text-to-SQL accuracy, unsupported-question handling, natural-language variations, and response time.
+- Improved Text-to-SQL reliability by introducing dimension-locking rules to prevent the model from confusing business dimensions such as category, sub-category, region, and customer segment.
+- Added an answerability-check layer to prevent unsupported business questions from being incorrectly converted into SQL.
+
 ---
 
 ## 🔐 Why Use a Local LLM?
@@ -294,7 +344,7 @@ For queries that return only a single numerical value, the result is displayed w
 AI-Business-Intelligence-Assistant/
 │
 ├── app.py
-├── README.md                 
+├── README.md
 ├── requirements.txt
 ├── .gitignore
 │
@@ -302,20 +352,25 @@ AI-Business-Intelligence-Assistant/
 │   └── superstore_orders.csv
 │
 ├── assets/
-│   └── AI-Business-Intelligence-Assistant-demo.gif
-|   └──demo.mp4
+│   ├── AI-Business-Intelligence-Assistant-demo.gif
+│   └── demo.mp4
 │
 ├── architecture_diagram/
 │   └── architecture-diagram.png
 │
-└── screenshots/
-    ├── 1.png
-    ├── 2.png
-    ├── 3.png
-    ├── 4.png
-    ├── 5.png
-    └── 6.png
-
+├── screenshots/
+│   ├── 1.png
+│   ├── 2.png
+│   ├── 3.png
+│   ├── 4.png
+│   ├── 5.png
+│   └── 6.png
+│
+└── benchmark/
+    ├── benchmark.py
+    ├── benchmark_questions.csv
+    ├── results.csv
+    
 ```
 The SQLite database and Python virtual environment are generated/used locally and should not be committed to the repository.
 
